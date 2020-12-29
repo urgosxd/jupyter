@@ -32,3 +32,11 @@ def Funciones(variable, expresion):
     plt.xticks(range(-10, 11, 2))
 
     return dominio, rango, plt
+
+def suma(tu):
+    return tu[0]+tu[1]
+    
+switcher={"suma":suma}
+def funcionesOperaciones(tup,op):
+   fun= switcher[op](tup)
+   return fun
