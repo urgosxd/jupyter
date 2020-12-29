@@ -33,10 +33,17 @@ def Funciones(variable, expresion):
 
     return dominio, rango, plt
 
-def suma(tu):
-    return tu[0]+tu[1]
+def suma(tu,variable):
+    dominio_0=continuous_domain(tu[0],variable,S.Reals)
+    dominio_1=continuous_domain(tu[1],variable,S.Reals)
+    dominio=Intersection(dominio_0,dominio_1)
+    return tu[0]+tu[1],dominio
     
-switcher={"suma":suma}
-def funcionesOperaciones(tup,op):
-   fun= switcher[op](tup)
+switcher={"suma":suma,
+    "resta":resta,
+    "multiplicacion":multiplicacion,
+    "division":division
+}
+def funcionesOperaciones(tup,op,variable):
+   fun= switcher[op](tup,variable)
    return fun
