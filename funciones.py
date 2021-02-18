@@ -83,6 +83,12 @@ def funcionesCompo(tup, bool, variable, valor=None):
         else:
             final = tup[1].subs(variable, tup[0])
             return final.subs(variable, valor)
+    else:
+        if valor == None:
+            return tup[0].subs(variable,tup[1])
+        else:
+            final = tup[0].subs(variable,tup[1])
+            return final.subs(variable,valor)
 
 
 def funcionesConjuntos(array1, array2, bool):
