@@ -4,22 +4,66 @@ init_printing(use_latex='mathjax')
 s = "(3*x+5)/(2*x)"
 asd= [x.strip("+") for x in re.findall(r".+?(?=[+-]|$)", s)]
 
+def RestarSegundo(pos,neg,term1):
+    finalTerm= list(map(lambda p:-1*p,pos)) +  list(map(lambda p:-1*p,neg))
+    return Add(Add(*finalTerm),term1,evaluate=False),-1*Add(Add(*finalTerm),term1) if LC(Add(Add(*finalTerm),term1))<0 else Add(Add(*finalTerm),term1)
+    
+def SumaResta(expr):
+   ispos=lambda x:x.as_coeff_Mul()[0].is_positive
+   return sift(Add.make_args(expr),ispos,binary=True)
+def ShowEquals(term1,term2=None):
+   if term2 is None:
+       return r'$%s$' %str(term1)
+   else:
+       return r'$%s = %s$' %(str(term1),str(term2))
+
+def ShowDivision(num,deno):
+   return r'\frac{%s}{%s}' %(str(latex(num)),str(latex(deno)))
+
 def SimplificarHandle(num,deno):
    factores1= factor_list(num)
    factores2= factor_list(deno)
-   factores1= list(map(lambda ele:{"cross": False,"facts":ele[0]},factores1[1])) 
-   factores2= list(map(lambda ele:{"cross": False,"facts":ele[0]},factores2[1])) 
-    
-   for i in factores1:
-       for ii in factores2:
+   factores1= list(map(lambda ele:{"facts":ele[0],"exp":ele[1]},factores1[1])) 
+   factores2= list(map(lambda ele:{"facts":ele[0],"exp":ele[1]},factores2[1])) 
+   expandFactores1=[]
+   expandFactores2=[]
+
+   for idx,i in enumerate(factores2):
+       countFails=0
+       for ii in factores1:
            if i["facts"] == ii["facts"]:
-               i["cross"]= True
-               ii["cross"]=True
-   factores1= list(map(lambda ele: r'\cancel{(%s)}' %str(ele["facts"]) if ele["cross"]==True else "(%s)" %str(ele["facts"]),factores1))
-   factores2= list(map(lambda ele: r'\cancel{(%s)}' %str(ele["facts"]) if ele["cross"]==True else "(%s)" %str(ele["facts"]),factores2))
+               contador = ii["exp"]-i["exp"]
+               for iii in range(ii["exp"]):
+                   expandFactores1.append({
+                       "cross":True if iii>contador-1 else False,
+                       "facts":ii["facts"],
+                       })
+               for iii2 in range(i["exp"]):
+                   expandFactores2.append({
+                       "cross": True if iii>contador*(-1)-1 else False,
+                       "facts":i["facts"]
+                       })
+           else:
+               countFails+=1
+               if idx == len(factores2)-1:
+                   expandFactores1.append({
+                       "cross":False,
+                       "facts":ii["facts"]
+                       })
+                   
+       if countFails == len(factores1):
+           expandFactores2.append({
+               "cross":False,
+               "facts": i["facts"]
+               })
+               
+
+
+   factores1= list(map(lambda ele: r'\cancel{(%s)}' %str(latex(ele["facts"])) if ele["cross"]==True else "(%s)" %str(latex(ele["facts"])),expandFactores1))
+   factores2= list(map(lambda ele: r'\cancel{(%s)}' %str(latex(ele["facts"])) if ele["cross"]==True else "(%s)" %str(latex(ele["facts"])),expandFactores2))
    factores1=r''.join(factores1)
    factores2=r''.join(factores2)
-   return r'$\frac{%s}{%s}$' %(factores1,factores2)
+   return r'\frac{%s}{%s}' %(factores1,factores2)
 
 def EquationHandle(tupleEq,tupleEq2=None):
    relation=0 
@@ -32,18 +76,121 @@ def EquationHandle(tupleEq,tupleEq2=None):
        else:
            aaa= parse_expr(tupleEq[0])
            aaa2= parse_expr(tupleEq[1])
-           estadios.append(aaa/aaa2)
+           estadios.append(ShowDivision(aaa,aaa2))
            if cancel(expand(aaa)/expand(aaa2)) == expand(aaa)/expand(aaa2):
                return estadios
            else:
-               aaa=factor(aaa)
-               estadios.append(SimplificarHandle(aaa,aaa2))
+               estadios.append(ShowEquals(SimplificarHandle(aaa,aaa2)))
                estadios.append(factor(aaa/aaa2))
            return estadios
    else:
-       res=re.findall(r'\((.*?)\)',tupleEq[0])
-       res2=re.findall(r'\((.*?)\)',tupleEq[1])
+       fases=[[False,False]]
+       if len(tupleEq)<2 and len(tupleEq2)==2:
+           aaa= parse_expr(tupleEq[0])
+           bbb= parse_expr(tupleEq2[0])
+           bbb2= parse_expr(tupleEq2[1])
+           estadios.append(ShowEquals(latex(aaa),ShowDivision(bbb,bbb2)))
+           divi2=''
+           if cancel(expand(bbb)/expand(bbb2)) == expand(bbb)/expand(bbb2):
+               fases[0][1]= False
+           else:
+               divi2=SimplificarHandle(bbb/bbb2)
+               fases[0][1]=True
+           if fases[0][0]==False and fases[0][1]==True:
+               estadios.append(ShowEquals(latex(aaa),divi2))
+               estadios.append(ShowEquals(latex(aaa),latex(bbb/bbb2)))
+           term1=fraction(aaa/1)
+           term2=fraction(bbb/bbb2)
+           estadios.append(ShowEquals(latex(UnevaluatedExpr(term1[0])*UnevaluatedExpr(term2[1])),latex(UnevaluatedExpr(term2[0])*UnevaluatedExpr(term1[1]))))
+           newTerm1=term1[0]*term2[1]
+           newTerm1=expand(newTerm1)
+           newTerm2=term2[0]*term1[1]
+           newTerm2=expand(newTerm2)
+           estadios.append(ShowEquals(latex(newTerm1),latex(newTerm2)))
+           pos,neg = SumaResta(newTerm2)
+           one,two = RestarSegundo(pos,neg,newTerm1)
+           estadios.append(ShowEquals(latex(one),latex(0)))
+           estadios.append(ShowEquals(latex(two),latex(0)))
 
+
+       if len(tupleEq)==2 and len(tupleEq2)<2:
+           aaa= parse_expr(tupleEq[0])
+           aaa2=parse_expr(tupleEq[1])
+           bbb= parse_expr(tupleEq2[0])
+           estadios.append(ShowEquals(ShowDivision(aaa,aaa2),latex(bbb)))
+           divi=''
+           if cancel(expand(aaa)/expand(aaa2)) == expand(aaa)/expand(aaa2):
+               fases[0][0]= False
+           else:
+               divi=SimplificarHandle(aaa,aaa2)
+               fases[0][0]=True
+           if fases[0][0] == True and fases[0][1]==False:
+               estadios.append(ShowEquals(divi,latex(bbb)))
+               estadios.append(ShowEquals(latex(aaa/aaa2),latex(bbb)))
+
+           term1=fraction(aaa/aaa2)
+           term2=fraction(bbb/1)
+           estadios.append(ShowEquals(latex(UnevaluatedExpr(term1[0])*UnevaluatedExpr(term2[1])),latex(UnevaluatedExpr(term2[0])*UnevaluatedExpr(term1[1]))))
+           newTerm1=term1[0]*term2[1]
+           newTerm1=expand(newTerm1)
+           newTerm2=term2[0]*term1[1]
+           newTerm2=expand(newTerm2)
+           estadios.append(ShowEquals(latex(newTerm1),latex(newTerm2)))
+           pos,neg = SumaResta(newTerm2)
+           one,two = RestarSegundo(pos,neg,newTerm1)
+           estadios.append(ShowEquals(latex(one),latex(0)))
+           estadios.append(ShowEquals(latex(two),latex(0)))
+       if len(tupleEq)==2 and len(tupleEq2)==2:
+           aaa=parse_expr(tupleEq[0])
+           aaa2=parse_expr(tupleEq[1])
+           bbb= parse_expr(tupleEq2[0])
+           bbb2= parse_expr(tupleEq2[1])
+           estadios.append(ShowEquals(ShowDivision(aaa,aaa2),ShowDivision(bbb,bbb2)))
+           divi= ""
+           divi2= ""
+           if cancel(expand(aaa)/expand(aaa2)) == expand(aaa)/expand(aaa2):
+               fases[0][0] = False
+           else:
+               divi = SimplificarHandle(aaa,aaa2)
+               fases[0][0] = True
+           if cancel(expand(bbb)/expand(bbb2)) == expand(bbb)/expand(bbb2):
+               fases[0][1] = False
+           else:
+               divi2 = SimplificarHandle(bbb,bbb2)
+               fases[0][1] = True
+            
+           if fases[0][0] == True and fases[0][1] == True:
+               estadios.append(ShowEquals(divi,divi2))
+               estadios.append(ShowEquals(latex(aaa/aaa2),latex(bbb/bbb2)))
+           if fases[0][0] == True and fases[0][1] == False:
+               estadios.append(ShowEquals(divi,latex(bbb/bbb2)))
+               estadios.append(ShowEquals(latex(aaa/aaa2),latex(bbb/bbb2)))
+           if fases[0][0] == False and fases[0][1]== True:
+               estadios.append(ShowEquals(latex(aaa/aaa2),divi2))
+               estadios.append(ShowEquals(latex(aaa/aaa2),latex(bbb/bbb2)))
+
+           term1=fraction(aaa/aaa2)
+           term2=fraction(bbb/bbb2)
+           estadios.append(ShowEquals(latex(UnevaluatedExpr(term1[0])*UnevaluatedExpr(term2[1])),latex(UnevaluatedExpr(term2[0])*UnevaluatedExpr(term1[1]))))
+           newTerm1=term1[0]*term2[1]
+           newTerm1=expand(newTerm1)
+           newTerm2=term2[0]*term1[1]
+           newTerm2=expand(newTerm2)
+           estadios.append(ShowEquals(latex(newTerm1),latex(newTerm2)))
+           pos,neg = SumaResta(newTerm2)
+           one,two = RestarSegundo(pos,neg,newTerm1)
+           estadios.append(ShowEquals(latex(one),latex(0)))
+           estadios.append(ShowEquals(latex(two),latex(0)))
+
+
+                
+           
+
+       return estadios
+           
+
+       
+        
 
 
 
