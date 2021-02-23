@@ -65,17 +65,16 @@ def SimplificarHandle(num,deno):
    factores2=r''.join(factores2)
    return r'\frac{%s}{%s}' %(factores1,factores2)
 
-def EquationHandle(tupleEq,tupleEq2=None):
+def EquationHandle(tupleEq,estadios=[],tupleEq2=None):
    relation=0 
-   estadios=[]
    relation=1 if tupleEq2 is None else 2
    if relation < 2:
        if len(tupleEq)<2:
-           aaa= parse_expr(tupleEq[0])
+           aaa= tupleEq[0]
            return factor(aaa)
        else:
-           aaa= parse_expr(tupleEq[0])
-           aaa2= parse_expr(tupleEq[1])
+           aaa= tupleEq[0]
+           aaa2= tupleEq[1]
            estadios.append(ShowDivision(aaa,aaa2))
            if cancel(expand(aaa)/expand(aaa2)) == expand(aaa)/expand(aaa2):
                return estadios
@@ -86,9 +85,9 @@ def EquationHandle(tupleEq,tupleEq2=None):
    else:
        fases=[[False,False]]
        if len(tupleEq)<2 and len(tupleEq2)==2:
-           aaa= parse_expr(tupleEq[0])
-           bbb= parse_expr(tupleEq2[0])
-           bbb2= parse_expr(tupleEq2[1])
+           aaa= tupleEq[0]
+           bbb= tupleEq2[0]
+           bbb2= tupleEq2[1]
            estadios.append(ShowEquals(latex(aaa),ShowDivision(bbb,bbb2)))
            divi2=''
            if cancel(expand(bbb)/expand(bbb2)) == expand(bbb)/expand(bbb2):
@@ -99,7 +98,7 @@ def EquationHandle(tupleEq,tupleEq2=None):
            if fases[0][0]==False and fases[0][1]==True:
                estadios.append(ShowEquals(latex(aaa),divi2))
                estadios.append(ShowEquals(latex(aaa),latex(bbb/bbb2)))
-           term1=fraction(aaa/1)
+           term1=fraction(aaa//1)
            term2=fraction(bbb/bbb2)
            estadios.append(ShowEquals(latex(UnevaluatedExpr(term1[0])*UnevaluatedExpr(term2[1])),latex(UnevaluatedExpr(term2[0])*UnevaluatedExpr(term1[1]))))
            newTerm1=term1[0]*term2[1]
@@ -114,9 +113,9 @@ def EquationHandle(tupleEq,tupleEq2=None):
 
 
        if len(tupleEq)==2 and len(tupleEq2)<2:
-           aaa= parse_expr(tupleEq[0])
-           aaa2=parse_expr(tupleEq[1])
-           bbb= parse_expr(tupleEq2[0])
+           aaa= tupleEq[0]
+           aaa2=tupleEq[1]
+           bbb= tupleEq2[0]
            estadios.append(ShowEquals(ShowDivision(aaa,aaa2),latex(bbb)))
            divi=''
            if cancel(expand(aaa)/expand(aaa2)) == expand(aaa)/expand(aaa2):
@@ -129,7 +128,7 @@ def EquationHandle(tupleEq,tupleEq2=None):
                estadios.append(ShowEquals(latex(aaa/aaa2),latex(bbb)))
 
            term1=fraction(aaa/aaa2)
-           term2=fraction(bbb/1)
+           term2=fraction(bbb//1)
            estadios.append(ShowEquals(latex(UnevaluatedExpr(term1[0])*UnevaluatedExpr(term2[1])),latex(UnevaluatedExpr(term2[0])*UnevaluatedExpr(term1[1]))))
            newTerm1=term1[0]*term2[1]
            newTerm1=expand(newTerm1)
@@ -141,10 +140,10 @@ def EquationHandle(tupleEq,tupleEq2=None):
            estadios.append(ShowEquals(latex(one),latex(0)))
            estadios.append(ShowEquals(latex(two),latex(0)))
        if len(tupleEq)==2 and len(tupleEq2)==2:
-           aaa=parse_expr(tupleEq[0])
-           aaa2=parse_expr(tupleEq[1])
-           bbb= parse_expr(tupleEq2[0])
-           bbb2= parse_expr(tupleEq2[1])
+           aaa=tupleEq[0]
+           aaa2=tupleEq[1]
+           bbb= tupleEq2[0]
+           bbb2= tupleEq2[1]
            estadios.append(ShowEquals(ShowDivision(aaa,aaa2),ShowDivision(bbb,bbb2)))
            divi= ""
            divi2= ""
@@ -186,11 +185,63 @@ def EquationHandle(tupleEq,tupleEq2=None):
                 
            
 
-       return estadios
            
+# def SumEqHandle(term1,term2):
+#   newTerm1=simplify(term1)
+#    term1 = radsimp(term1)
+#    n,d = fraction(newTerm1)
+#    estadios=[[(n,d),(n2,d2)]]
+#    estadios.append(ShowEquals(latex(newTerm1),latex(newTerm2)))
+#    return estadios
 
        
-        
+def Resolver(term1,term2=None):
+    estadios=[[]]
+    preFases=[[0,0]]
+    if term2 is None:
+        return estadios 
+    else:
+        try:
+            radTerm1 = radsimp(term1)
+            preFases[0][0]=True
+        except:
+            n,d=fraction(term1)
+            if d==1:
+                term1=(n,)
+                estadios[0].append(term1)
+            else:
+                term1=(n,d)
+                estadios[0].append(term1)
+        else:
+            newTerm1=simplify(term1)
+            n,d = fraction(newTerm1)
+            estadios[0].append((n,d))
+
+        try:
+            radTerm2 = radsimp(term2)
+            preFases[0][1]=True
+        except:
+            n2,d2=fraction(term2)
+            if d2==1:
+                term2=(n2,)
+                estadios[0].append(term2)
+            else:
+                term2=(n2,d2)
+                estadios[0].append(term2)
+        else:
+            newTerm2=simplify(term2)
+            n2,d2=fraction(newTerm2)
+            estadios[0].append((n2,d2))
+        if preFases[0][0]==False and preFases[0][1]==False:
+            estadios.append(ShowEquals(latex(term1[0] if len(term1)<2 else term1[0]/term1[1]),latex(term2[0] if len(term2)<2 else term2[0]/term2[1])))
+        if preFases[0][0]==True and preFases[0][1]==False:
+            estadios.append(ShowEquals(latex(radTerm1),latex(term2[0] if len(term2)<2 else term2[0]/term2[1])))
+        if preFases[0][0]==False and preFases[0][1]==True:
+            estadios.append(ShowEquals(latex(term1[0] if len(term1)<2 else term1[0]/term1[1]),latex(radTerm2)))
+        if preFases[0][0]==True and preFases[0][1]==True:
+            estadios.append(ShowEquals(latex(radTerm1),latex(radTerm2)))
+        EquationHandle(estadios[0][0],estadios,estadios[0][1])
+    return estadios
 
 
 
