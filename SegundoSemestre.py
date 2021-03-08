@@ -1,4 +1,5 @@
 from sympy import *
+from sympy.simplify.radsimp import collect_sqrt,rad_rationalize
 import re
 init_printing(use_latex='mathjax')
 s = "(3*x+5)/(2*x)"
@@ -7,7 +8,6 @@ asd= [x.strip("+") for x in re.findall(r".+?(?=[+-]|$)", s)]
 def RestarSegundo(pos,neg,term1):
     finalTerm= list(map(lambda p:-1*p,pos)) +  list(map(lambda p:-1*p,neg))
     return Add(Add(*finalTerm),term1,evaluate=False),-1*Add(Add(*finalTerm),term1) if LC(Add(Add(*finalTerm),term1))<0 else Add(Add(*finalTerm),term1)
-    
 def SumaResta(expr):
    ispos=lambda x:x.as_coeff_Mul()[0].is_positive
    return sift(Add.make_args(expr),ispos,binary=True)
@@ -18,8 +18,10 @@ def ShowEquals(term1,term2=None):
        return r'$%s = %s$' %(str(term1),str(term2))
 
 def ShowDivision(num,deno):
-   return r'\frac{%s}{%s}' %(str(latex(num)),str(latex(deno)))
-
+   return r'\frac{%s}{%s}' %(str(latex(num,order="none")),str(latex(deno)))
+def Alinear(expr):
+    pos,neg = SumaResta(expr)
+    return Add(*pos,*neg,evaluate=False)
 def SimplificarHandle(num,deno):
    factores1= factor_list(num)
    factores2= factor_list(deno)
@@ -30,7 +32,7 @@ def SimplificarHandle(num,deno):
 
    for idx,i in enumerate(factores2):
        countFails=0
-       for ii in factores1:
+       for idx2,ii in enumerate(factores1):
            if i["facts"] == ii["facts"]:
                contador = ii["exp"]-i["exp"]
                for iii in range(ii["exp"]):
@@ -40,12 +42,12 @@ def SimplificarHandle(num,deno):
                        })
                for iii2 in range(i["exp"]):
                    expandFactores2.append({
-                       "cross": True if iii>contador*(-1)-1 else False,
+                       "cross": True if iii2>contador*(-1)-1 else False,
                        "facts":i["facts"]
                        })
            else:
                countFails+=1
-               if idx == len(factores2)-1:
+               if idx == len(factores1)-1:
                    expandFactores1.append({
                        "cross":False,
                        "facts":ii["facts"]
@@ -73,15 +75,15 @@ def EquationHandle(tupleEq,estadios=[],tupleEq2=None):
            aaa= tupleEq[0]
            return factor(aaa)
        else:
-           aaa= tupleEq[0]
-           aaa2= tupleEq[1]
-           estadios.append(ShowDivision(aaa,aaa2))
-           if cancel(expand(aaa)/expand(aaa2)) == expand(aaa)/expand(aaa2):
-               return estadios
-           else:
-               estadios.append(ShowEquals(SimplificarHandle(aaa,aaa2)))
-               estadios.append(factor(aaa/aaa2))
-           return estadios
+           aaa= tupleEq[0].doit()
+           aaa2= tupleEq[1].doit()
+           estadios.append(ShowEquals(ShowDivision(latex(aaa),latex(aaa2))))
+           #if cancel(expand(aaa)/expand(aaa2)) == expand(aaa)/expand(aaa2):
+            #   print("Yep")
+             #  return estadios
+           #else:
+           estadios.append(ShowEquals(SimplificarHandle(aaa,aaa2)))
+           estadios.append(factor(aaa/aaa2))
    else:
        fases=[[False,False]]
        if len(tupleEq)<2 and len(tupleEq2)==2:
@@ -182,7 +184,17 @@ def EquationHandle(tupleEq,estadios=[],tupleEq2=None):
            estadios.append(ShowEquals(latex(two),latex(0)))
 
 
-                
+       if len(tupleEq)<2 and len(tupleEq2)<2:
+           aaa=tupleEq[0]
+           bbb=tupleEq2[0]
+           estadios.append(ShowEquals(latex(aaa),latex(bbb)))
+           pos,neg = SumaResta(bbb)
+           one,two = RestarSegundo(pos,neg,aaa)
+           estadios.append(ShowEquals(latex(one),latex(0)))
+           estadios.append(ShowEquals(latex(two),latex(0)))
+
+
+
            
 
            
@@ -193,19 +205,55 @@ def EquationHandle(tupleEq,estadios=[],tupleEq2=None):
 #    estadios=[[(n,d),(n2,d2)]]
 #    estadios.append(ShowEquals(latex(newTerm1),latex(newTerm2)))
 #    return estadios
+def Factorizando(exp,letX):
+    if collect(exp,letX)!=exp:
+        fact=collect(exp,letX,evaluate=False)
+        sums=0
+        for i in fact.keys():
+            sums=sums+i
+        return sums,fact[letX].doit()
+    else:
+        return 1,exp.doit()
 
        
-def Resolver(term1,term2=None):
+def Resolver(term1,term2=None,radicals=None,variables=None):
     estadios=[[]]
     preFases=[[0,0]]
     if term2 is None:
-        return estadios 
+        n,d = fraction(term1)
+        estadios.append(ShowEquals(ShowDivision(latex(Alinear(n),order="none"),latex(Alinear(d),order="none"))))
+        if radicals[0]==True and radicals[1]==False:
+            s,f=Factorizando(n,variables[0])
+            rad=rad_rationalize(1,f.subs(variables[0],2))
+            n=s*f*rad[0].subs(2,variables[0])
+            d=d*rad[0].subs(2,UnevaluatedExpr(variables[0]))
+            estadios.append(ShowEquals(ShowDivision(latex(n),latex(d))))
+            n=expand(n)
+            d=expand(d)
+            n=factor(n)
+            d=factor(d)
+        if radicals[0]==False and radicals[1]==True:
+            s,f=Factorizando(d,variables[0])
+            rad=rad_rationalize(1,f.subs(variables[0],2))
+            print(rad[0])
+            #n=n*rad[0].subs(2,UnevaluatedExpr(variables[0]))
+            #d=s*f*rad[0].subs(2,variables[0])
+            n=expand(n)
+            d=expand(d)
+            n=factor(n)
+            d=factor(d)
+        term1=(n,d)
+        estadios[0].append(term1)
+        EquationHandle(estadios[0][0],estadios)
     else:
         try:
             radTerm1 = radsimp(term1)
+            if radTerm1 == term1:
+                raise ValueError("gaaa")
             preFases[0][0]=True
         except:
             n,d=fraction(term1)
+            
             if d==1:
                 term1=(n,)
                 estadios[0].append(term1)
@@ -219,6 +267,8 @@ def Resolver(term1,term2=None):
 
         try:
             radTerm2 = radsimp(term2)
+            if radTerm2 == term2:
+                raise ValueError("gaaa")
             preFases[0][1]=True
         except:
             n2,d2=fraction(term2)
@@ -242,7 +292,5 @@ def Resolver(term1,term2=None):
             estadios.append(ShowEquals(latex(radTerm1),latex(radTerm2)))
         EquationHandle(estadios[0][0],estadios,estadios[0][1])
     return estadios
-
-
 
 
